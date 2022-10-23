@@ -52,7 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
             if nbytes == 0 {
                 thread::sleep(core::time::Duration::from_millis(100));
             }
-            io::stderr().write_all(b"\r                    \r").unwrap();
+            io::stderr().write_all(b"\r                       \r").unwrap();
             io::stderr().flush().unwrap();
             let mut last_cmd = last_cmd_clone.lock().unwrap();
             let mn = min(last_cmd.len(), nbytes);
@@ -82,7 +82,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
         let mut last_cmd_vec = last_cmd.lock().unwrap();
         last_cmd_vec.clear();
         last_cmd_vec.append(&mut cmd.as_bytes().to_vec());
-        io::stderr().write_all(b"\rWaiting for approval").unwrap();
+        io::stderr().write_all(b"\rWaiting for approval...").unwrap();
         drop(last_cmd_vec);
         io::stderr().flush().unwrap();
         id += 1;
