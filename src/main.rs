@@ -1,6 +1,6 @@
 use colink::{CoLink, Participant, ProtocolEntry};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     io::{Read, Write},
     net::TcpListener,
     os::unix::{net::UnixStream, prelude::OwnedFd},
@@ -95,6 +95,7 @@ impl ProtocolEntry for Server {
             });
 
             // incoming command
+            let mut preapproved_cmds = HashSet::new();
             let mut stdin = shell_process.stdin.as_ref().unwrap();
             let mut id = 0;
             loop {
@@ -105,7 +106,9 @@ impl ProtocolEntry for Server {
                     *enable_monitor.lock().unwrap() = false;
                     break;
                 }
-                let decision = self.tg_approval(&cl, &participants, &cmd).await?;
+                let decision = self
+                    .tg_approval(&cl, &participants, &cmd, &mut preapproved_cmds)
+                    .await?;
                 if decision <= 1 {
                     if decision == 1 {
                         *enable_monitor.lock().unwrap() = true;
@@ -130,17 +133,26 @@ impl Server {
         cl: &CoLink,
         participants: &[Participant],
         cmd: &[u8],
+        preapproved_cmds: &mut HashSet<String>,
     ) -> Result<i32, Box<dyn std::error::Error + Send + Sync + 'static>> {
+        let cmd = String::from_utf8_lossy(cmd).to_string();
+        if preapproved_cmds.contains(&cmd) {
+            return Ok(0);
+        }
         let mut params = HashMap::new();
         let text = format!(
             "User {} want to run the following command:\n{}",
             &participants[1].user_id[..10],
-            String::from_utf8_lossy(cmd)
+            cmd
         );
         params.insert("text", text);
         let callback_token = uuid::Uuid::new_v4().to_string();
         let mut inline_keyboard_entries: Vec<Vec<HashMap<&str, String>>> = vec![];
-        for entries in [["Approve", "Reject"], ["Approve and Monitor", "Ignore"]] {
+        for entries in [
+            vec!["Approve", "Reject"],
+            vec!["Approve and Monitor", "Ignore"],
+            vec!["Approve all same commands"],
+        ] {
             let mut inline_keyboard_entry: Vec<HashMap<&str, String>> = vec![];
             for entry in entries {
                 let mut map: HashMap<&str, String> = HashMap::new();
@@ -169,7 +181,10 @@ impl Server {
             .read_or_wait(&format!("tg_bot:callback:{}", callback_token))
             .await?;
         let decision = String::from_utf8_lossy(&action);
-        if decision == "Approve" {
+        if !cmd.is_empty() && decision == "Approve all same commands" {
+            preapproved_cmds.insert(cmd);
+        }
+        if decision == "Approve" || decision == "Approve all same commands" {
             Ok(0)
         } else if decision == "Approve and Monitor" {
             Ok(1)
