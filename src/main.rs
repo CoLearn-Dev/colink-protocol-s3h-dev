@@ -17,9 +17,9 @@ impl ProtocolEntry for Server {
         _param: Vec<u8>,
         participants: Vec<Participant>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-        let addr = "127.0.0.1:8088";
+        let addr = "0.0.0.0:8088";
         let listener = TcpListener::bind(addr)?;
-        cl.set_variable("screen", addr.as_bytes(), &[participants[0].clone()])
+        cl.set_variable("socket_port", "8088".as_bytes(), &[participants[0].clone()])
             .await?;
         if let Some(stream) = listener.incoming().next() {
             let mut stream = stream?;
@@ -134,7 +134,7 @@ impl Server {
         let mut params = HashMap::new();
         let text = format!(
             "User {} want to run the following command:\n{}",
-            participants[1].user_id,
+            &participants[1].user_id[..10],
             String::from_utf8_lossy(cmd)
         );
         params.insert("text", text);

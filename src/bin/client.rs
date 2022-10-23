@@ -27,7 +27,6 @@ pub struct CommandLineArgs {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
     let CommandLineArgs { addr, jwt, target } = CommandLineArgs::from_args();
-    println!("{} {} {}", addr, jwt, target);
 
     // run task
     let mut cl = CoLink::new(&addr, &jwt);
@@ -38,7 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
             role: "client".to_string(),
         },
         Participant {
-            user_id: target,
+            user_id: target.clone(),
             role: "server".to_string(),
         },
     ];
@@ -46,10 +45,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
         .run_task("remote_shell", "".as_bytes(), &participants, true)
         .await?;
 
-    // wait
+    // connecting
+    let screen_host = connecting_msg(&cl, &target).await?;
+    io::stderr()
+        .write_all(format!("Connecting {}@{} ...", &target[..10], screen_host).as_bytes())
+        .unwrap();
+    io::stderr().flush().unwrap();
     cl.set_task_id(&task_id);
-    let screen_addr = cl.get_variable("screen", &participants[1]).await?;
-    let screen_addr = String::from_utf8_lossy(&screen_addr).to_string();
+    let socket_port = cl.get_variable("socket_port", &participants[1]).await?;
+    let socket_port = String::from_utf8_lossy(&socket_port).to_string();
+    let screen_addr = format!("{}:{}", screen_host, socket_port);
+    io::stderr().write_all(b"\n").unwrap();
+    io::stderr().flush().unwrap();
 
     // output
     let waiting_for_approval = Arc::new(Mutex::new(false));
@@ -143,4 +150,52 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
     cl.set_variable(&format!("command:{}", id), &[], &[participants[1].clone()])
         .await?;
     exit(0);
+}
+
+async fn connecting_msg(cl: &CoLink, target: &str) -> Result<String, String> {
+    io::stderr()
+        .write_all(format!("Detecting target {} from registries...", &target[..10]).as_bytes())
+        .unwrap();
+    io::stderr().flush().unwrap();
+    let mut counter = 0;
+    let c = ["\\", "|", "/", "-"];
+    while cl
+        .read_entry(&format!("_internal:known_users:{}:core_addr", &target))
+        .await
+        .is_err()
+        || cl
+            .read_entry(&format!("_internal:known_users:{}:guest_jwt", &target))
+            .await
+            .is_err()
+    {
+        io::stderr()
+            .write_all(
+                format!(
+                    "\rDetecting target {} from registries...{}",
+                    &target[..10],
+                    c[counter % 4]
+                )
+                .as_bytes(),
+            )
+            .unwrap();
+        io::stderr().flush().unwrap();
+        tokio::time::sleep(core::time::Duration::from_millis(250)).await;
+        counter += 1;
+        if counter > 480 {
+            let msg = format!("\nTimeout: fail to find target {}\n", &target[..10]);
+            io::stderr().write_all(msg.as_bytes()).unwrap();
+            return Err(msg);
+        }
+    }
+    let core_addr = cl
+        .read_entry(&format!("_internal:known_users:{}:core_addr", &target))
+        .await
+        .unwrap();
+    let core_addr = String::from_utf8_lossy(&core_addr);
+    let url = url::Url::parse(&core_addr).unwrap();
+    let host = url.host_str().unwrap();
+    io::stderr()
+        .write_all(format!("\nFound target host: {}\n", host).as_bytes())
+        .unwrap();
+    Ok(host.to_string())
 }
