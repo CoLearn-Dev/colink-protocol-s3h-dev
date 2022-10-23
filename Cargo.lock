@@ -468,6 +468,7 @@ dependencies = [
  "prost",
  "prost-build",
  "serde_json",
+ "structopt",
  "tokio",
  "tracing",
  "uuid",

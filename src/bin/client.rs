@@ -1,28 +1,36 @@
 use colink::{decode_jwt_without_validation, CoLink, Participant};
 use std::{
     cmp::min,
-    env,
     io::{self, BufRead, Read, Write},
     net::TcpStream,
     process::exit,
     sync::{mpsc::channel, Arc, Mutex},
     thread,
 };
+use structopt::StructOpt;
+
+#[derive(StructOpt)]
+#[structopt(name = "CoLink-S3H", about = "CoLink-S3H")]
+pub struct CommandLineArgs {
+    /// Address of CoLink server
+    #[structopt(short, long, env = "COLINK_CORE_ADDR")]
+    pub addr: String,
+
+    /// User JWT
+    #[structopt(short, long, env = "COLINK_JWT")]
+    pub jwt: String,
+
+    /// Target
+    pub target: String,
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-    let args = env::args().skip(1).collect::<Vec<_>>();
-    let addr = &args[0];
-    let jwt = &args[1];
-    let target = &args[2];
+    let CommandLineArgs { addr, jwt, target } = CommandLineArgs::from_args();
+    println!("{} {} {}", addr, jwt, target);
 
-    let mut cl = CoLink::new(addr, jwt);
-    let user_id = decode_jwt_without_validation(jwt).unwrap().user_id;
-    let target = match decode_jwt_without_validation(target) {
-        Ok(content) => content.user_id,
-        Err(_) => target.to_string(),
-    };
-
+    let mut cl = CoLink::new(&addr, &jwt);
+    let user_id = decode_jwt_without_validation(&jwt).unwrap().user_id;
     let participants = vec![
         Participant {
             user_id,

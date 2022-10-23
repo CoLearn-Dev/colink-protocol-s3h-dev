@@ -109,14 +109,13 @@ impl ProtocolEntry for Server {
                 let decision = self.tg_approval(&cl, &participants, &cmd).await?;
                 if decision <= 1 {
                     if decision == 1 {
-                        // enable_monitor
                         *enable_monitor.lock().unwrap() = true;
                     } else {
                         *enable_monitor.lock().unwrap() = false;
                     }
                     stdin.write_all(&cmd)?;
                 } else {
-                    stream.write_all("Rejected, enter the new command: ".as_bytes())?;
+                    stream.write_all("Rejected, enter a new command: ".as_bytes())?;
                 }
                 id += 1;
             }
