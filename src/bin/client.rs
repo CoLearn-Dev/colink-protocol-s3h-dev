@@ -4,7 +4,8 @@ use std::{
     env,
     io::{self, BufRead, Read, Write},
     net::TcpStream,
-    sync::{Arc, Mutex},
+    process::exit,
+    sync::{mpsc::channel, Arc, Mutex},
     thread,
 };
 
@@ -37,9 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
         .await?;
 
     cl.set_task_id(&task_id);
-    let screen_addr = cl
-        .get_variable(&format!("screen"), &participants[1])
-        .await?;
+    let screen_addr = cl.get_variable("screen", &participants[1]).await?;
     let screen_addr = String::from_utf8_lossy(&screen_addr).to_string();
 
     let last_cmd: Arc<Mutex<Vec<u8>>> = Arc::new(Mutex::new(Vec::new()));
@@ -52,7 +51,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
             if nbytes == 0 {
                 thread::sleep(core::time::Duration::from_millis(100));
             }
-            io::stderr().write_all(b"\r                       \r").unwrap();
+            io::stderr()
+                .write_all(b"\r                       \r")
+                .unwrap();
             io::stderr().flush().unwrap();
             let mut last_cmd = last_cmd_clone.lock().unwrap();
             let mn = min(last_cmd.len(), nbytes);
@@ -69,6 +70,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
         }
     });
 
+    let (tx, rx) = channel();
+    ctrlc::set_handler(move || tx.send(()).unwrap()).unwrap();
+    let cl_clone = cl.clone();
+    let p1 = participants[1].clone();
+    tokio::spawn(async move {
+        let mut id = 0;
+        loop {
+            rx.recv()?;
+            cl_clone
+                .set_variable(&format!("ctrlc:{}", id), "".as_bytes(), &[p1.clone()])
+                .await?;
+            id += 1;
+        }
+        #[allow(unreachable_code)]
+        Ok::<(), Box<dyn std::error::Error + Send + Sync + 'static>>(())
+    });
+
     let mut id = 0;
     let stdin = io::stdin();
     for line in stdin.lock().lines() {
@@ -82,12 +100,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
         let mut last_cmd_vec = last_cmd.lock().unwrap();
         last_cmd_vec.clear();
         last_cmd_vec.append(&mut cmd.as_bytes().to_vec());
-        io::stderr().write_all(b"\rWaiting for approval...").unwrap();
+        io::stderr()
+            .write_all(b"\rWaiting for approval...")
+            .unwrap();
         drop(last_cmd_vec);
         io::stderr().flush().unwrap();
         id += 1;
     }
     cl.set_variable(&format!("command:{}", id), &[], &[participants[1].clone()])
         .await?;
-    Ok(())
+    exit(0);
 }

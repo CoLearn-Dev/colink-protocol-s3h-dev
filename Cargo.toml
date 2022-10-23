@@ -6,6 +6,7 @@ default-run = "colink-protocol-remote-shell"
 
 [dependencies]
 colink = "0.1.18"
+ctrlc = "3.2"
 prost = "0.10"
 serde_json = "1.0"
 tokio = "1.18"

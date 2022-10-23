@@ -464,6 +464,7 @@ name = "colink-protocol-remote-shell"
 version = "0.1.0"
 dependencies = [
  "colink",
+ "ctrlc",
  "prost",
  "prost-build",
  "serde_json",

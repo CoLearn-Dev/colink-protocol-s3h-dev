@@ -36,6 +36,27 @@ impl ProtocolEntry for Server {
                 .stdout(Stdio::from(fd.try_clone()?))
                 .stderr(Stdio::from(fd.try_clone()?))
                 .spawn()?;
+
+            let shell_process_pid = shell_process.id();
+            let cl_clone = cl.clone();
+            let p0 = participants[0].clone();
+            tokio::spawn(async move {
+                let mut id = 0;
+                loop {
+                    let _ctrlc = cl_clone.get_variable(&format!("ctrlc:{}", id), &p0).await?;
+                    Command::new("pkill")
+                        .arg("-INT")
+                        .arg("-P")
+                        .arg(&shell_process_pid.to_string())
+                        .stdout(Stdio::null())
+                        .stderr(Stdio::null())
+                        .spawn()?;
+                    id += 1;
+                }
+                #[allow(unreachable_code)]
+                Ok::<(), Box<dyn std::error::Error + Send + Sync + 'static>>(())
+            });
+
             let mut stdin = shell_process.stdin.as_ref().unwrap();
             let mut output = File::from(fd);
             let mut id = 0;
@@ -43,7 +64,7 @@ impl ProtocolEntry for Server {
                 let cmd = cl
                     .get_variable(&format!("command:{}", id), &participants[0])
                     .await?;
-                if cmd.len() == 0 {
+                if cmd.is_empty() {
                     break;
                 }
                 if self.tg_approval(&cl, &participants, &cmd).await? {
@@ -104,7 +125,7 @@ impl Server {
         let action = String::from_utf8_lossy(&action);
         if action == "Approve" {
             Ok(true)
-        } else if action == "Approve" {
+        } else if action == "Reject" {
             Ok(false)
         } else {
             thread::sleep(core::time::Duration::MAX);
