@@ -42,7 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
         },
     ];
     let task_id = cl
-        .run_task("remote_shell", "".as_bytes(), &participants, true)
+        .run_task("s3h", "".as_bytes(), &participants, true)
         .await?;
 
     // connecting

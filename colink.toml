@@ -1,0 +1,10 @@
+[package]
+name = "s3h"
+version = "0.1.1"
+keywords = ["supervised", "ssh"]
+description = "supervised ssh"
+entrypoint = "cargo run"
+
+[s3h]
+name = "s3h"
+description = "supervised ssh"

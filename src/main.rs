@@ -222,6 +222,6 @@ impl ProtocolEntry for Client {
 }
 
 colink::protocol_start!(
-    ("remote_shell:server", Server),
-    ("remote_shell:client", Client)
+    ("s3h:server", Server),
+    ("s3h:client", Client)
 );

@@ -1,0 +1,9 @@
+[source]
+    [source.git]
+    url = "{{source.git.url}}"
+    commit = "{{source.git.commit}}"
+
+[binary]
+    [binary.linux-x86_64]
+    url = "{{binary.linux-x86_64.url}}"
+    sha256 = "{{binary.linux-x86_64.sha256}}"

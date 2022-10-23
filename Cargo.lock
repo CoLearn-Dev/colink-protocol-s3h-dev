@@ -469,7 +469,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "colink-protocol-remote-shell"
+name = "colink-protocol-s3h"
 version = "0.1.0"
 dependencies = [
  "colink",
