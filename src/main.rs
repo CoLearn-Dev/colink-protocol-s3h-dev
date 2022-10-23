@@ -17,9 +17,9 @@ impl ProtocolEntry for Server {
         _param: Vec<u8>,
         participants: Vec<Participant>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-        let addr = "0.0.0.0:8088";
+        let addr = "0.0.0.0:8443";
         let listener = TcpListener::bind(addr)?;
-        cl.set_variable("socket_port", "8088".as_bytes(), &[participants[0].clone()])
+        cl.set_variable("socket_port", "8443".as_bytes(), &[participants[0].clone()])
             .await?;
         if let Some(stream) = listener.incoming().next() {
             let mut stream = stream?;
@@ -149,15 +149,21 @@ impl Server {
         let callback_token = uuid::Uuid::new_v4().to_string();
         let mut inline_keyboard_entries: Vec<Vec<HashMap<&str, String>>> = vec![];
         for entries in [
-            vec!["Approve", "Reject"],
-            vec!["Approve and Monitor", "Ignore"],
-            vec!["Approve all same commands"],
+            vec![("Approve", "Approve"), ("Reject", "Reject")],
+            vec![
+                ("Approve and monitor", "Approve and monitor"),
+                ("Ignore", "Ignore"),
+            ],
+            vec![("Approve all the same commands", "Approve_all")],
         ] {
             let mut inline_keyboard_entry: Vec<HashMap<&str, String>> = vec![];
-            for entry in entries {
+            for (text, callback_data) in entries {
                 let mut map: HashMap<&str, String> = HashMap::new();
-                map.insert("text", entry.to_string());
-                map.insert("callback_data", format!("1 {} {}", callback_token, entry));
+                map.insert("text", text.to_string());
+                map.insert(
+                    "callback_data",
+                    format!("1 {} {}", callback_token, callback_data),
+                );
                 inline_keyboard_entry.push(map);
             }
             inline_keyboard_entries.push(inline_keyboard_entry);
@@ -181,12 +187,12 @@ impl Server {
             .read_or_wait(&format!("tg_bot:callback:{}", callback_token))
             .await?;
         let decision = String::from_utf8_lossy(&action);
-        if !cmd.is_empty() && decision == "Approve all same commands" {
+        if !cmd.is_empty() && decision == "Approve_all" {
             preapproved_cmds.insert(cmd);
         }
-        if decision == "Approve" || decision == "Approve all same commands" {
+        if decision == "Approve" || decision == "Approve_all" {
             Ok(0)
-        } else if decision == "Approve and Monitor" {
+        } else if decision == "Approve and monitor" {
             Ok(1)
         } else if decision == "Reject" {
             Ok(2)
@@ -221,7 +227,4 @@ impl ProtocolEntry for Client {
     }
 }
 
-colink::protocol_start!(
-    ("s3h:server", Server),
-    ("s3h:client", Client)
-);
+colink::protocol_start!(("s3h:server", Server), ("s3h:client", Client));
