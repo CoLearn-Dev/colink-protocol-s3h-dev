@@ -50,6 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
             let nbytes = stream.read(&mut buffer).unwrap();
             if nbytes == 0 {
                 thread::sleep(core::time::Duration::from_millis(100));
+                continue;
             }
             io::stderr()
                 .write_all(b"\r                       \r")
