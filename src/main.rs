@@ -79,7 +79,7 @@ impl ProtocolEntry for Server {
                             cl_clone
                                 .run_task(
                                     "telegram_bot.send_msg",
-                                    &buffer[..nbytes],
+                                    ansi_clean_up(&buffer[..nbytes]).as_bytes(),
                                     &[Participant {
                                         user_id: cl_clone.get_user_id()?,
                                         role: "default".to_string(),
@@ -195,6 +195,17 @@ impl Server {
             Ok(3)
         }
     }
+}
+
+fn ansi_clean_up(text: &[u8]) -> String {
+    let text = String::from_utf8_lossy(text);
+    let text = regex::Regex::new(r"\x1b\[[0-9;]*m")
+        .unwrap()
+        .replace_all(&text, "");
+    let text = regex::Regex::new(r"\x1b]0;(.*?)\a")
+        .unwrap()
+        .replace_all(&text, "");
+    text.to_string()
 }
 
 struct Client;
