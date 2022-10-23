@@ -6,7 +6,6 @@ use std::{
     os::unix::{net::UnixStream, prelude::OwnedFd},
     process::{Command, Stdio},
     sync::{Arc, Mutex},
-    thread,
 };
 
 struct Server;
@@ -71,7 +70,7 @@ impl ProtocolEntry for Server {
                     loop {
                         let nbytes = sock2.read(&mut buffer).unwrap();
                         if nbytes == 0 {
-                            thread::sleep(core::time::Duration::from_millis(10));
+                            tokio::time::sleep(core::time::Duration::from_millis(10)).await;
                             continue;
                         }
                         stream_clone.write_all(&buffer[..nbytes]).unwrap();
@@ -177,7 +176,7 @@ impl Server {
         } else if decision == "Reject" {
             Ok(2)
         } else {
-            thread::sleep(core::time::Duration::MAX);
+            tokio::time::sleep(core::time::Duration::MAX).await;
             Ok(3)
         }
     }

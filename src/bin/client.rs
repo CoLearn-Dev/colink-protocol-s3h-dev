@@ -29,6 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
     let CommandLineArgs { addr, jwt, target } = CommandLineArgs::from_args();
     println!("{} {} {}", addr, jwt, target);
 
+    // run task
     let mut cl = CoLink::new(&addr, &jwt);
     let user_id = decode_jwt_without_validation(&jwt).unwrap().user_id;
     let participants = vec![
@@ -45,10 +46,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
         .run_task("remote_shell", "".as_bytes(), &participants, true)
         .await?;
 
+    // wait
     cl.set_task_id(&task_id);
     let screen_addr = cl.get_variable("screen", &participants[1]).await?;
     let screen_addr = String::from_utf8_lossy(&screen_addr).to_string();
 
+    // output
+    let waiting_for_approval = Arc::new(Mutex::new(false));
+    let waiting_for_approval_clone = waiting_for_approval.clone();
     let last_cmd: Arc<Mutex<Vec<u8>>> = Arc::new(Mutex::new(Vec::new()));
     let last_cmd_clone = last_cmd.clone();
     thread::spawn(move || {
@@ -60,9 +65,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
                 thread::sleep(core::time::Duration::from_millis(100));
                 continue;
             }
-            io::stderr()
-                .write_all(b"\r                       \r")
-                .unwrap();
+            *waiting_for_approval_clone.lock().unwrap() = false;
+            io::stderr().write_all(b"\r\x1b[K").unwrap();
             io::stderr().flush().unwrap();
             let mut last_cmd = last_cmd_clone.lock().unwrap();
             let mn = min(last_cmd.len(), nbytes);
@@ -78,7 +82,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
             io::stdout().flush().unwrap();
         }
     });
+    // waiting_for_approval output
+    let waiting_for_approval_clone = waiting_for_approval.clone();
+    thread::spawn(move || {
+        let mut i = 0;
+        let c = ["\\", "|", "/", "-"];
+        loop {
+            let waiting_for_approval = *waiting_for_approval_clone.lock().unwrap();
+            if waiting_for_approval {
+                io::stderr()
+                    .write_all(format!("\rWaiting for approval...{}", c[i]).as_bytes())
+                    .unwrap();
+                io::stderr().flush().unwrap();
+            }
+            thread::sleep(core::time::Duration::from_millis(250));
+            i = (i + 1) % 4;
+        }
+    });
 
+    // ctrlc
     let (tx, rx) = channel();
     ctrlc::set_handler(move || tx.send(()).unwrap()).unwrap();
     let cl_clone = cl.clone();
@@ -96,6 +118,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
         Ok::<(), Box<dyn std::error::Error + Send + Sync + 'static>>(())
     });
 
+    // command
     let mut id = 0;
     let stdin = io::stdin();
     for line in stdin.lock().lines() {
@@ -109,11 +132,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
         let mut last_cmd_vec = last_cmd.lock().unwrap();
         last_cmd_vec.clear();
         last_cmd_vec.append(&mut cmd.as_bytes().to_vec());
+        drop(last_cmd_vec);
         io::stderr()
             .write_all(b"\rWaiting for approval...")
             .unwrap();
-        drop(last_cmd_vec);
         io::stderr().flush().unwrap();
+        *waiting_for_approval.lock().unwrap() = true;
         id += 1;
     }
     cl.set_variable(&format!("command:{}", id), &[], &[participants[1].clone()])
