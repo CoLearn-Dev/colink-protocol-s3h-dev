@@ -443,9 +443,9 @@ dependencies = [
 
 [[package]]
 name = "colink"
-version = "0.1.20"
+version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f2761229d071e0cc762a56c498d9f6302967b5d46a7a322b8bd7707375aa128"
+checksum = "82f9b59ee89ecb9e85ca33815787d4cd2332acdd65797b8992c11821b06d6455"
 dependencies = [
  "async-trait",
  "base64",
@@ -466,16 +466,15 @@ dependencies = [
  "tonic-build",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
 name = "colink-protocol-s3h"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "colink",
  "ctrlc",
- "prost",
- "prost-build",
  "regex",
  "serde_json",
  "structopt",
