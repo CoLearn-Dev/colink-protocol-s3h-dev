@@ -41,9 +41,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
             role: "server".to_string(),
         },
     ];
-    let task_id = cl
-        .run_task("s3h", "".as_bytes(), &participants, true)
-        .await?;
+    let cl_clone = cl.clone();
+    let participants_clone = participants.clone();
+    let task_id = tokio::spawn(async move {
+        cl_clone
+            .run_task("s3h", "".as_bytes(), &participants_clone, true)
+            .await
+    });
 
     // connecting
     let screen_host = connecting_msg(&cl, &target).await?;
@@ -51,6 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
         .write_all(format!("Connecting {}@{} ...", &target[..10], screen_host).as_bytes())
         .unwrap();
     io::stderr().flush().unwrap();
+    let task_id = task_id.await??;
     cl.set_task_id(&task_id);
     let socket_port = cl.get_variable("socket_port", &participants[1]).await?;
     let socket_port = String::from_utf8_lossy(&socket_port).to_string();
@@ -149,6 +154,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
     }
     cl.set_variable(&format!("command:{}", id), &[], &[participants[1].clone()])
         .await?;
+    io::stderr().write_all(b"exit\n").unwrap();
+    io::stderr().flush().unwrap();
     exit(0);
 }
 
