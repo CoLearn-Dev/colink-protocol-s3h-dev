@@ -208,6 +208,9 @@ fn ansi_clean_up(text: &[u8]) -> String {
     let text = regex::Regex::new(r"\x1b\[[0-9;]*m")
         .unwrap()
         .replace_all(&text, "");
+    let text = regex::Regex::new(r"\x1b]0;(.*?)(\n|$)")
+        .unwrap()
+        .replace_all(&text, "");
     let text = regex::Regex::new(r"\x1b]0;(.*?)\a")
         .unwrap()
         .replace_all(&text, "");
