@@ -143,7 +143,7 @@ impl Server {
         let mut params = HashMap::new();
         let text = format!(
             "User {} want to run the following command:\n{}",
-            &participants[1].user_id[..7],
+            &participants[0].user_id[..7],
             cmd
         );
         params.insert("text", text);
