@@ -52,7 +52,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
     // connecting
     let screen_host = connecting_msg(&cl, &target).await?;
     io::stderr()
-        .write_all(format!("Connecting {}@{} ...", &target[..10], screen_host).as_bytes())
+        .write_all(
+            format!(
+                "\x1b[01mConnecting {}@{} ...\x1b[0m",
+                &target[..7],
+                screen_host
+            )
+            .as_bytes(),
+        )
         .unwrap();
     io::stderr().flush().unwrap();
     let task_id = task_id.await??;
@@ -103,7 +110,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
             let waiting_for_approval = *waiting_for_approval_clone.lock().unwrap();
             if waiting_for_approval {
                 io::stderr()
-                    .write_all(format!("\rWaiting for approval...{}", c[i]).as_bytes())
+                    .write_all(
+                        format!("\r\x1b[01mWaiting for approval...{}\x1b[0m", c[i]).as_bytes(),
+                    )
                     .unwrap();
                 io::stderr().flush().unwrap();
             }
@@ -146,7 +155,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
         last_cmd_vec.append(&mut cmd.as_bytes().to_vec());
         drop(last_cmd_vec);
         io::stderr()
-            .write_all(b"\rWaiting for approval...")
+            .write_all(b"\r\x1b[01mWaiting for approval...\x1b[0m")
             .unwrap();
         io::stderr().flush().unwrap();
         *waiting_for_approval.lock().unwrap() = true;
@@ -161,7 +170,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
 
 async fn connecting_msg(cl: &CoLink, target: &str) -> Result<String, String> {
     io::stderr()
-        .write_all(format!("Detecting target {} from registries...", &target[..10]).as_bytes())
+        .write_all(
+            format!(
+                "\x1b[01mResolving target host for user {} from registries...\x1b[0m",
+                &target[..7]
+            )
+            .as_bytes(),
+        )
         .unwrap();
     io::stderr().flush().unwrap();
     let mut counter = 0;
@@ -178,8 +193,8 @@ async fn connecting_msg(cl: &CoLink, target: &str) -> Result<String, String> {
         io::stderr()
             .write_all(
                 format!(
-                    "\rDetecting target {} from registries...{}",
-                    &target[..10],
+                    "\r\x1b[01mResolving target host for user {} from registries...{}\x1b[0m",
+                    &target[..7],
                     c[counter % 4]
                 )
                 .as_bytes(),
@@ -189,7 +204,10 @@ async fn connecting_msg(cl: &CoLink, target: &str) -> Result<String, String> {
         tokio::time::sleep(core::time::Duration::from_millis(250)).await;
         counter += 1;
         if counter > 480 {
-            let msg = format!("\nTimeout: fail to find target {}\n", &target[..10]);
+            let msg = format!(
+                "\n\x1b[01mTimeout: fail to find target {}\x1b[0m\n",
+                &target[..7]
+            );
             io::stderr().write_all(msg.as_bytes()).unwrap();
             return Err(msg);
         }
@@ -202,7 +220,7 @@ async fn connecting_msg(cl: &CoLink, target: &str) -> Result<String, String> {
     let url = url::Url::parse(&core_addr).unwrap();
     let host = url.host_str().unwrap();
     io::stderr()
-        .write_all(format!("\nFound target host: {}\n", host).as_bytes())
+        .write_all(format!("\n\x1b[01mFound target host: {}\x1b[0m\n", host).as_bytes())
         .unwrap();
     Ok(host.to_string())
 }

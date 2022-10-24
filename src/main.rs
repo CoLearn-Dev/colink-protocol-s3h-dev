@@ -32,6 +32,7 @@ impl ProtocolEntry for Server {
             let fd = OwnedFd::from(sock1);
             let shell_process = Command::new("bash")
                 .arg("-i")
+                .env("TERM", "xterm-256color")
                 .current_dir(dir)
                 .stdin(Stdio::piped())
                 .stdout(Stdio::from(fd.try_clone()?))
@@ -142,7 +143,7 @@ impl Server {
         let mut params = HashMap::new();
         let text = format!(
             "User {} want to run the following command:\n{}",
-            &participants[1].user_id[..10],
+            &participants[1].user_id[..7],
             cmd
         );
         params.insert("text", text);
@@ -208,10 +209,10 @@ fn ansi_clean_up(text: &[u8]) -> String {
     let text = regex::Regex::new(r"\x1b\[[0-9;]*m")
         .unwrap()
         .replace_all(&text, "");
-    let text = regex::Regex::new(r"\x1b]0;(.*?)(\n|$)")
+    let text = regex::Regex::new(r"\x1b\]0;(.*?)(\n|$)")
         .unwrap()
         .replace_all(&text, "");
-    let text = regex::Regex::new(r"\x1b]0;(.*?)\a")
+    let text = regex::Regex::new(r"\x1b\]0;(.*?)\a")
         .unwrap()
         .replace_all(&text, "");
     text.to_string()
