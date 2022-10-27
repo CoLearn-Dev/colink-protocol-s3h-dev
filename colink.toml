@@ -1,6 +1,6 @@
 [package]
 name = "s3h"
-version = "0.1.2"
+version = "0.1.3"
 keywords = ["supervised", "ssh"]
 description = "supervised ssh"
 entrypoint = "cargo run"

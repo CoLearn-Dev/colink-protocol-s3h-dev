@@ -33,7 +33,7 @@ jobs:
           tar -zcvf ${{ env.PACKAGE_NAME }}-linux-x86_64.tar.gz ${{ env.PACKAGE_NAME }} colink.toml
       - name: Sha256
         id: sha256
-        run: echo "::set-output name=sha256::`shasum -a 256 ${{ env.PACKAGE_NAME }}-linux-x86_64.tar.gz | awk '{ print $1 }'`"
+        run: echo "sha256=`shasum -a 256 ${{ env.PACKAGE_NAME }}-linux-x86_64.tar.gz | awk '{ print $1 }'`" >> $GITHUB_OUTPUT
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
@@ -60,7 +60,7 @@ jobs:
           ssh-key: ${{ secrets.SSH_KEY }}
       - name: Commit Hash
         id: commit_hash
-        run: echo "::set-output name=commit_hash::`git rev-parse HEAD`"
+        run: echo "commit_hash=`git rev-parse HEAD`" >> $GITHUB_OUTPUT
       - name: Generate
         run: |
           cp inventory-template.toml ${{ env.PROTOCOL_NAME }}.toml
