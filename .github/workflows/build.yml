@@ -9,8 +9,20 @@ env:
   PACKAGE_NAME: colink-protocol-s3h
 
 jobs:
-  linux-x86_64:
-    runs-on: ubuntu-latest
+  build:
+    strategy:
+      matrix:
+        platform: [linux-x86_64, macos-x86_64]
+        include:
+          - platform: linux-x86_64
+            ci_image: ubuntu-20.04
+            cargo_target: x86_64-unknown-linux-gnu
+            sed_command: sed
+          - platform: macos-x86_64
+            ci_image: macos-12
+            cargo_target: x86_64-apple-darwin
+            sed_command: gsed
+    runs-on: ${{ matrix.ci_image }}
     defaults:
       run:
         shell: bash
@@ -19,39 +31,39 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: recursive
-          ssh-key: ${{ secrets.SSH_KEY }}
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
       - name: Build
-        run: cargo build --release --target x86_64-unknown-linux-gnu
+        run: cargo build --release --target ${{ matrix.cargo_target }}
+      - name: Install sed
+        if: ${{ startsWith(matrix.ci_image, 'macos') }}
+        run: brew install gnu-sed
       - name: Pack
         run: |
-          sed -i '/^entrypoint =/centrypoint = "./${{ env.PACKAGE_NAME }}"' colink.toml
-          cp target/x86_64-unknown-linux-gnu/release/${{ env.PACKAGE_NAME }} ./
-          tar -zcvf ${{ env.PACKAGE_NAME }}-linux-x86_64.tar.gz ${{ env.PACKAGE_NAME }} colink.toml
-      - name: Sha256
-        id: sha256
-        run: echo "sha256=`shasum -a 256 ${{ env.PACKAGE_NAME }}-linux-x86_64.tar.gz | awk '{ print $1 }'`" >> $GITHUB_OUTPUT
+          ${{ matrix.sed_command }} -i '/^entrypoint =/centrypoint = "./${{ env.PACKAGE_NAME }}"' colink.toml
+          cp target/${{ matrix.cargo_target }}/release/${{ env.PACKAGE_NAME }} ./
+          tar -zcvf ${{ env.PACKAGE_NAME }}-${{ matrix.platform }}.tar.gz ${{ env.PACKAGE_NAME }} colink.toml
       - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/github-script@v6
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ${{ env.PACKAGE_NAME }}-linux-x86_64.tar.gz
-          asset_name: ${{ env.PACKAGE_NAME }}-linux-x86_64.tar.gz
-          asset_content_type: application/tar+gzip
-    outputs:
-      sha256-linux-x86_64: ${{ steps.sha256.outputs.sha256 }}
+          script: |
+            const fs = require('fs').promises;
+            github.rest.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: ${{ github.event.release.id }},
+              name: '${{ env.PACKAGE_NAME }}-${{ matrix.platform }}.tar.gz',
+              data: await fs.readFile('${{ env.PACKAGE_NAME }}-${{ matrix.platform }}.tar.gz')
+            });
 
   update-inventory:
     runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash
-    needs: [ linux-x86_64 ]
+    needs: [ build ]
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -61,13 +73,24 @@ jobs:
       - name: Commit Hash
         id: commit_hash
         run: echo "commit_hash=`git rev-parse HEAD`" >> $GITHUB_OUTPUT
+      - name: Sha256
+        id: sha256
+        run: |
+          export platform=linux-x86_64
+          wget ${{ github.event.repository.html_url }}/releases/download/${{ github.event.release.tag_name }}/${{ env.PACKAGE_NAME }}-$platform.tar.gz
+          echo "sha256-$platform=`shasum -a 256 ${{ env.PACKAGE_NAME }}-$platform.tar.gz | awk '{ print $1 }'`" >> $GITHUB_OUTPUT
+          export platform=macos-x86_64
+          wget ${{ github.event.repository.html_url }}/releases/download/${{ github.event.release.tag_name }}/${{ env.PACKAGE_NAME }}-$platform.tar.gz
+          echo "sha256-$platform=`shasum -a 256 ${{ env.PACKAGE_NAME }}-$platform.tar.gz | awk '{ print $1 }'`" >> $GITHUB_OUTPUT
       - name: Generate
         run: |
           cp inventory-template.toml ${{ env.PROTOCOL_NAME }}.toml
           sed -i 's#{{source.git.url}}#${{ github.event.repository.clone_url }}#' ${{ env.PROTOCOL_NAME }}.toml
           sed -i 's#{{source.git.commit}}#${{ steps.commit_hash.outputs.commit_hash }}#' ${{ env.PROTOCOL_NAME }}.toml
           sed -i 's#{{binary.linux-x86_64.url}}#${{ github.event.repository.html_url }}/releases/download/${{ github.event.release.tag_name }}/${{ env.PACKAGE_NAME }}-linux-x86_64.tar.gz#' ${{ env.PROTOCOL_NAME }}.toml
-          sed -i 's#{{binary.linux-x86_64.sha256}}#${{ needs.linux-x86_64.outputs.sha256-linux-x86_64 }}#' ${{ env.PROTOCOL_NAME }}.toml
+          sed -i 's#{{binary.linux-x86_64.sha256}}#${{ steps.sha256.outputs.sha256-linux-x86_64 }}#' ${{ env.PROTOCOL_NAME }}.toml
+          sed -i 's#{{binary.macos-x86_64.url}}#${{ github.event.repository.html_url }}/releases/download/${{ github.event.release.tag_name }}/${{ env.PACKAGE_NAME }}-macos-x86_64.tar.gz#' ${{ env.PROTOCOL_NAME }}.toml
+          sed -i 's#{{binary.macos-x86_64.sha256}}#${{ steps.sha256.outputs.sha256-macos-x86_64 }}#' ${{ env.PROTOCOL_NAME }}.toml
       - name: SSH Agent
         run: |
           eval `ssh-agent`

@@ -7,3 +7,6 @@
     [binary.linux-x86_64]
     url = "{{binary.linux-x86_64.url}}"
     sha256 = "{{binary.linux-x86_64.sha256}}"
+    [binary.macos-x86_64]
+    url = "{{binary.macos-x86_64.url}}"
+    sha256 = "{{binary.macos-x86_64.sha256}}"
