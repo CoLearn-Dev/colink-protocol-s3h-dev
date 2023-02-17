@@ -1,3 +1,4 @@
+#![allow(clippy::uninlined_format_args)]
 use colink::{CoLink, Participant, ProtocolEntry};
 use std::{
     collections::{HashMap, HashSet},
@@ -19,7 +20,7 @@ impl ProtocolEntry for Server {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
         let addr = "0.0.0.0:8443";
         let listener = TcpListener::bind(addr)?;
-        cl.set_variable("socket_port", "8443".as_bytes(), &[participants[0].clone()])
+        cl.send_variable("socket_port", "8443".as_bytes(), &[participants[0].clone()])
             .await?;
         if let Some(stream) = listener.incoming().next() {
             let mut stream = stream?;
@@ -46,7 +47,9 @@ impl ProtocolEntry for Server {
             tokio::spawn(async move {
                 let mut id = 0;
                 loop {
-                    let _ctrlc = cl_clone.get_variable(&format!("ctrlc:{}", id), &p0).await?;
+                    let _ctrlc = cl_clone
+                        .recv_variable(&format!("ctrlc:{}", id), &p0)
+                        .await?;
                     Command::new("pkill")
                         .arg("-INT")
                         .arg("-P")
@@ -101,7 +104,7 @@ impl ProtocolEntry for Server {
             let mut id = 0;
             loop {
                 let cmd = cl
-                    .get_variable(&format!("command:{}", id), &participants[0])
+                    .recv_variable(&format!("command:{}", id), &participants[0])
                     .await?;
                 if cmd.is_empty() {
                     *enable_monitor.lock().unwrap() = false;

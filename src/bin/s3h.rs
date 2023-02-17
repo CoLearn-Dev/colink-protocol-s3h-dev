@@ -1,3 +1,4 @@
+#![allow(clippy::uninlined_format_args)]
 use colink::{decode_jwt_without_validation, CoLink, Participant};
 use std::{
     cmp::min,
@@ -64,7 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
     io::stderr().flush().unwrap();
     let task_id = task_id.await??;
     cl.set_task_id(&task_id);
-    let socket_port = cl.get_variable("socket_port", &participants[1]).await?;
+    let socket_port = cl.recv_variable("socket_port", &participants[1]).await?;
     let socket_port = String::from_utf8_lossy(&socket_port).to_string();
     let screen_addr = format!("{}:{}", screen_host, socket_port);
     io::stderr().write_all(b"\n").unwrap();
@@ -131,7 +132,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
         loop {
             rx.recv()?;
             cl_clone
-                .set_variable(&format!("ctrlc:{}", id), "".as_bytes(), &[p1.clone()])
+                .send_variable(&format!("ctrlc:{}", id), "".as_bytes(), &[p1.clone()])
                 .await?;
             id += 1;
         }
@@ -144,7 +145,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
     let stdin = io::stdin();
     for line in stdin.lock().lines() {
         let cmd = format!("{}\n", line?);
-        cl.set_variable(
+        cl.send_variable(
             &format!("command:{}", id),
             cmd.as_bytes(),
             &[participants[1].clone()],
@@ -161,7 +162,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
         *waiting_for_approval.lock().unwrap() = true;
         id += 1;
     }
-    cl.set_variable(&format!("command:{}", id), &[], &[participants[1].clone()])
+    cl.send_variable(&format!("command:{}", id), &[], &[participants[1].clone()])
         .await?;
     io::stderr().write_all(b"exit\n").unwrap();
     io::stderr().flush().unwrap();
