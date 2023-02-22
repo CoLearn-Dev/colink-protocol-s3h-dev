@@ -162,8 +162,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
         *waiting_for_approval.lock().unwrap() = true;
         id += 1;
     }
-    cl.send_variable(&format!("command:{}", id), &[], &[participants[1].clone()])
-        .await?;
+    cl.send_variable_with_remote_storage(
+        &format!("command:{}", id),
+        &[],
+        &[participants[1].clone()],
+    )
+    .await?;
     io::stderr().write_all(b"exit\n").unwrap();
     io::stderr().flush().unwrap();
     exit(0);
