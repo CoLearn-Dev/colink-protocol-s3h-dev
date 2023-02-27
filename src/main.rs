@@ -80,10 +80,19 @@ impl ProtocolEntry for Server {
                         stream_clone.write_all(&buffer[..nbytes]).unwrap();
                         let enable_monitor = *enable_monitor_clone.lock().unwrap();
                         if enable_monitor {
+                            let mut params = HashMap::new();
+                            params.insert(
+                                "text",
+                                format!(
+                                    "```\n{}\n```",
+                                    markdown_escape(ansi_clean_up(&buffer[..nbytes]))
+                                ),
+                            );
+                            params.insert("parse_mode", "MarkdownV2".to_string());
                             cl_clone
                                 .run_task(
-                                    "telegram_bot.send_msg",
-                                    ansi_clean_up(&buffer[..nbytes]).as_bytes(),
+                                    "telegram_bot.send_msg_with_parse_mode",
+                                    &serde_json::to_vec(&params)?,
                                     &[Participant {
                                         user_id: cl_clone.get_user_id()?,
                                         role: "default".to_string(),
@@ -221,6 +230,34 @@ fn ansi_clean_up(text: &[u8]) -> String {
     text.to_string()
 }
 
+fn markdown_escape(text: String) -> String {
+    let text_escaped: String = text
+        .chars()
+        .map(|x| match x {
+            '\\' => "\\\\".to_string(),
+            '_' => "\\_".to_string(),
+            '*' => "\\*".to_string(),
+            '[' => "\\[".to_string(),
+            ']' => "\\]".to_string(),
+            '(' => "\\(".to_string(),
+            ')' => "\\)".to_string(),
+            '~' => "\\~".to_string(),
+            '`' => "\\`".to_string(),
+            '>' => "\\>".to_string(),
+            '#' => "\\#".to_string(),
+            '+' => "\\+".to_string(),
+            '-' => "\\-".to_string(),
+            '=' => "\\=".to_string(),
+            '|' => "\\|".to_string(),
+            '{' => "\\{".to_string(),
+            '}' => "\\}".to_string(),
+            '.' => "\\.".to_string(),
+            '!' => "\\!".to_string(),
+            _ => x.to_string(),
+        })
+        .collect();
+    text_escaped
+}
 struct Client;
 #[colink::async_trait]
 impl ProtocolEntry for Client {

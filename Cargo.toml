@@ -1,6 +1,6 @@
 [package]
 name = "colink-protocol-s3h"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 default-run = "colink-protocol-s3h"
 
