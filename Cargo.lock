@@ -521,6 +521,7 @@ version = "0.1.5"
 dependencies = [
  "colink",
  "ctrlc",
+ "rand",
  "regex",
  "serde_json",
  "structopt",

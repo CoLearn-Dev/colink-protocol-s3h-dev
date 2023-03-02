@@ -31,3 +31,12 @@ jobs:
           asset_path: target/x86_64-unknown-linux-gnu/release/s3h
           asset_name: s3h
           asset_content_type: application/octet-stream
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: target/x86_64-unknown-linux-gnu/release/s3h_is
+          asset_name: s3h_is
+          asset_content_type: application/octet-stream
