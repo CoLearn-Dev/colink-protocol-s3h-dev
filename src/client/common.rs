@@ -1,8 +1,7 @@
 use colink::{CoLink, Participant};
 use std::{
     cmp::min,
-    io::{self, BufRead, Read, Write},
-    net::TcpStream,
+    io::{self, BufRead, Write},
     sync::{mpsc::channel, Arc, Mutex},
     thread,
 };
@@ -10,39 +9,52 @@ use std::{
 pub(crate) async fn s3h_session(
     cl: &CoLink,
     participants: &[Participant],
-    screen_addr: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
     // output
     let waiting_for_approval = Arc::new(Mutex::new(false));
     let waiting_for_approval_clone = waiting_for_approval.clone();
     let last_cmd: Arc<Mutex<Vec<u8>>> = Arc::new(Mutex::new(Vec::new()));
     let last_cmd_clone = last_cmd.clone();
-    let screen_addr = screen_addr.to_string();
+    let cl_clone = cl.clone();
+    let p1 = participants[1].clone();
     thread::spawn(move || {
-        let mut stream = TcpStream::connect(screen_addr).unwrap();
-        let mut buffer = [0; 4096];
-        loop {
-            let nbytes = stream.read(&mut buffer).unwrap();
-            if nbytes == 0 {
-                thread::sleep(core::time::Duration::from_millis(100));
-                continue;
-            }
-            *waiting_for_approval_clone.lock().unwrap() = false;
-            io::stderr().write_all(b"\r\x1b[K").unwrap();
-            io::stderr().flush().unwrap();
-            let mut last_cmd = last_cmd_clone.lock().unwrap();
-            let mn = min(last_cmd.len(), nbytes);
-            if mn > 0 && last_cmd[..mn] == buffer[..mn] {
-                last_cmd.drain(..mn);
-                drop(last_cmd);
-                io::stdout().write_all(&buffer[mn..nbytes]).unwrap();
-            } else {
-                last_cmd.clear();
-                drop(last_cmd);
-                io::stdout().write_all(&buffer[..nbytes]).unwrap();
-            }
-            io::stdout().flush().unwrap();
-        }
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async move {
+                let mut id = 0;
+                loop {
+                    let buffer = cl_clone
+                        .recv_variable(&format!("output:{}", id), &p1)
+                        .await?;
+                    id += 1;
+                    let nbytes = buffer.len();
+                    if nbytes == 0 {
+                        thread::sleep(core::time::Duration::from_millis(100));
+                        continue;
+                    }
+
+                    *waiting_for_approval_clone.lock().unwrap() = false;
+                    io::stderr().write_all(b"\r\x1b[K").unwrap();
+                    io::stderr().flush().unwrap();
+                    let mut last_cmd = last_cmd_clone.lock().unwrap();
+                    let mn = min(last_cmd.len(), nbytes);
+                    if mn > 0 && last_cmd[..mn] == buffer[..mn] {
+                        last_cmd.drain(..mn);
+                        drop(last_cmd);
+                        io::stdout().write_all(&buffer[mn..nbytes]).unwrap();
+                    } else {
+                        last_cmd.clear();
+                        drop(last_cmd);
+                        io::stdout().write_all(&buffer[..nbytes]).unwrap();
+                    }
+                    io::stdout().flush().unwrap();
+                }
+                #[allow(unreachable_code)]
+                Ok::<(), Box<dyn std::error::Error + Send + Sync + 'static>>(())
+            })
+            .unwrap();
     });
     // waiting_for_approval output
     let waiting_for_approval_clone = waiting_for_approval.clone();

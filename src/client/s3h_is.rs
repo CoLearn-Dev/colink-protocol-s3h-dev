@@ -163,13 +163,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
     io::stderr().flush().unwrap();
     let task_id = task_id.await??;
     cl.set_task_id(&task_id);
-    let socket_port = cl.recv_variable("socket_port", &participants[1]).await?;
-    let socket_port = String::from_utf8_lossy(&socket_port).to_string();
-    let screen_addr = format!("{}:{}", addr, socket_port);
+    cl.recv_variable("start_session", &participants[1]).await?;
     io::stderr().write_all(b"\n").unwrap();
     io::stderr().flush().unwrap();
 
-    s3h_session(&cl, &participants, &screen_addr).await?;
+    s3h_session(&cl, &participants).await?;
 
     drop(is);
     exit(0);
