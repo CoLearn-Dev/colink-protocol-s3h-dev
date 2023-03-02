@@ -69,17 +69,24 @@ pub(crate) async fn s3h_session(
     ctrlc::set_handler(move || tx.send(()).unwrap()).unwrap();
     let cl_clone = cl.clone();
     let p1 = participants[1].clone();
-    tokio::spawn(async move {
-        let mut id = 0;
-        loop {
-            rx.recv()?;
-            cl_clone
-                .send_variable(&format!("ctrlc:{}", id), "".as_bytes(), &[p1.clone()])
-                .await?;
-            id += 1;
-        }
-        #[allow(unreachable_code)]
-        Ok::<(), Box<dyn std::error::Error + Send + Sync + 'static>>(())
+    thread::spawn(move || {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async move {
+                let mut id = 0;
+                loop {
+                    rx.recv()?;
+                    cl_clone
+                        .send_variable(&format!("ctrlc:{}", id), "".as_bytes(), &[p1.clone()])
+                        .await?;
+                    id += 1;
+                }
+                #[allow(unreachable_code)]
+                Ok::<(), Box<dyn std::error::Error + Send + Sync + 'static>>(())
+            })
+            .unwrap();
     });
 
     // command
