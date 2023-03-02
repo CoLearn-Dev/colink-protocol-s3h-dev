@@ -31,7 +31,6 @@ pub(crate) async fn s3h_session(
                     id += 1;
                     let nbytes = buffer.len();
                     if nbytes == 0 {
-                        thread::sleep(core::time::Duration::from_millis(100));
                         continue;
                     }
 
